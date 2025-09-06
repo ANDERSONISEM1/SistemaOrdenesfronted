@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core'; 
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -38,10 +38,10 @@ export class OrdenComponent implements OnInit {
   cantidad: number | null = null;
 
   // Resumen de orden
-  resumen: { nombre: string; cantidad: number; precio: number; subtotal: number }[] = [];
+  resumen: { productoId: number; nombre: string; cantidad: number; precio: number; subtotal: number }[] = [];
   total = 0;
 
-  // Filtro buscador
+  // Buscador
   filtroProducto = '';
   sugerencias: Item[] = [];
   busquedaRealizada = false;
@@ -64,16 +64,13 @@ export class OrdenComponent implements OnInit {
       return;
     }
 
-    this.http
-      .get<Item[]>(`${this.apiUrl}/productos?nombre=${encodeURIComponent(q)}`)
+    this.http.get<Item[]>(`${this.apiUrl}/productos?nombre=${encodeURIComponent(q)}`)
       .subscribe({
         next: (data) => {
-          console.log("🔍 Respuesta API:", data); // debug
           this.sugerencias = data;
           this.busquedaRealizada = true;
         },
-        error: (err) => {
-          console.error('❌ Error buscando productos:', err);
+        error: () => {
           this.sugerencias = [];
           this.busquedaRealizada = true;
         }
@@ -92,19 +89,25 @@ export class OrdenComponent implements OnInit {
     if (!this.seleccion || !this.cantidad) return;
 
     const subtotal = this.seleccion.precioUnitario * this.cantidad;
-    this.total += subtotal;
 
     this.resumen.push({
+      productoId: this.seleccion.id,
       nombre: this.seleccion.nombre,
       cantidad: this.cantidad,
       precio: this.seleccion.precioUnitario,
       subtotal
     });
 
+    this.recalcularTotal();
+
     this.seleccion = null;
     this.cantidad = null;
     this.filtroProducto = '';
     this.busquedaRealizada = false;
+  }
+
+  private recalcularTotal() {
+    this.total = this.resumen.reduce((sum, r) => sum + r.subtotal, 0);
   }
 
   confirmarOrden() {
@@ -115,6 +118,9 @@ export class OrdenComponent implements OnInit {
 
     const orden = {
       numeroOrden: Date.now().toString(),
+      fecha: new Date().toISOString(),
+      total: this.total,
+      estado: 'Pendiente',
       cliente: {
         primerNombre: this.primerNombre,
         segundoNombre: this.segundoNombre,
@@ -125,19 +131,22 @@ export class OrdenComponent implements OnInit {
         correo: this.correo,
         nit: this.nit
       },
-      fecha: new Date().toISOString(),
-      total: this.total,
-      estado: 'Pendiente',
       detalles: this.resumen.map(r => ({
-        productoId: this.items.find(i => i.nombre === r.nombre)?.id,
+        productoId: r.productoId,
         cantidad: r.cantidad,
         precioUnitario: r.precio
       }))
     };
 
-    this.http.post(`${this.apiUrl}/ordenes`, orden).subscribe(() => {
-      alert('✅ Orden guardada en BD');
-      this.limpiarOrden();
+    this.http.post(`${this.apiUrl}/ordenes`, orden).subscribe({
+      next: () => {
+        alert('✅ Orden y cliente guardados en BD');
+        this.limpiarOrden();
+      },
+      error: (err) => {
+        console.error('❌ Error guardando la orden:', err?.error?.detalle || err?.message || err);
+        alert('Error al guardar la orden.\n' + (err?.error?.detalle || ''));
+      }
     });
   }
 
