@@ -9,57 +9,68 @@
     <div class="form-row">
       <div class="form-group">
         <label>Primer Nombre:</label>
-        <input type="text" [(ngModel)]="primerNombre" name="primerNombre" required>
+        <input type="text" [(ngModel)]="primerNombre" name="primerNombre" required />
       </div>
       <div class="form-group">
         <label>Segundo Nombre:</label>
-        <input type="text" [(ngModel)]="segundoNombre" name="segundoNombre">
+        <input type="text" [(ngModel)]="segundoNombre" name="segundoNombre" />
       </div>
       <div class="form-group">
         <label>Primer Apellido:</label>
-        <input type="text" [(ngModel)]="primerApellido" name="primerApellido" required>
+        <input type="text" [(ngModel)]="primerApellido" name="primerApellido" required />
       </div>
       <div class="form-group">
         <label>Segundo Apellido:</label>
-        <input type="text" [(ngModel)]="segundoApellido" name="segundoApellido">
+        <input type="text" [(ngModel)]="segundoApellido" name="segundoApellido" />
       </div>
     </div>
 
     <div class="form-row">
       <div class="form-group">
         <label>Dirección:</label>
-        <input type="text" [(ngModel)]="direccion" name="direccion" required>
+        <input type="text" [(ngModel)]="direccion" name="direccion" required />
       </div>
       <div class="form-group">
         <label>Teléfono:</label>
-        <input type="tel" [(ngModel)]="telefono" name="telefono">
+        <input type="tel" [(ngModel)]="telefono" name="telefono" />
       </div>
       <div class="form-group">
         <label>Correo electrónico:</label>
-        <input type="email" [(ngModel)]="correo" name="correo">
+        <input type="email" [(ngModel)]="correo" name="correo" />
       </div>
       <div class="form-group">
         <label>NIT:</label>
-        <input type="text" [(ngModel)]="nit" name="nit" (focus)="focoNit()" (blur)="blurNit()">
+        <input type="text" [(ngModel)]="nit" name="nit" (focus)="focoNit()" (blur)="blurNit()" />
       </div>
     </div>
   </form>
 </section>
-<!-- Selección de Productos con buscador y lista filtrada -->
+
+<!-- Selección de Productos -->
 <section id="productos">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
     <h2>Seleccionar Productos</h2>
     <div style="position: relative;">
-      <input type="text"
-             [(ngModel)]="filtroProducto"
-             placeholder="Buscar producto..."
-             class="buscador-productos"
-             autocomplete="off" />
-      <ul *ngIf="filtroProducto && productosFiltrados.length" class="lista-filtrada" style="position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ccc; width: 100%; z-index: 10; max-height: 150px; overflow-y: auto; padding: 0; margin: 0; list-style: none;">
-        <li *ngFor="let item of productosFiltrados" 
-            (click)="seleccionarProducto(item)" 
-            style="padding: 5px 10px; cursor: pointer;">
+      <input
+        type="text"
+        [(ngModel)]="filtroProducto"
+        (ngModelChange)="buscarProductos()"
+        placeholder="Buscar producto..."
+        class="buscador-productos"
+        autocomplete="off"
+        name="filtroProducto"
+      />
+
+      <!-- Lista de sugerencias -->
+      <ul *ngIf="busquedaRealizada" class="lista-filtrada">
+        <!-- Mostrar productos -->
+        <li *ngFor="let item of sugerencias" (click)="seleccionarProducto(item)">
           {{ item.nombre }}
+        </li>
+
+        <!-- Mostrar mensaje cuando no hay resultados -->
+        <li *ngIf="busquedaRealizada && sugerencias.length === 0">
+          No se encontraron productos
         </li>
       </ul>
     </div>
@@ -71,15 +82,14 @@
       <input type="text" [value]="seleccion?.nombre || ''" readonly />
     </div>
 
- <div class="form-group">
-  <label>Precio Unitario (Q):</label>
-  <input type="text" [value]="seleccion ? seleccion.precio : ''" readonly>
-</div>
-
+    <div class="form-group">
+      <label>Precio Unitario (Q):</label>
+      <input type="text" [value]="seleccion ? seleccion.precioUnitario : ''" readonly />
+    </div>
 
     <div class="form-group">
       <label>Cantidad:</label>
-      <input type="number" [(ngModel)]="cantidad" name="cantidad" min="1" [disabled]="!seleccion">
+      <input type="number" [(ngModel)]="cantidad" name="cantidad" min="1" [disabled]="!seleccion" />
     </div>
 
     <div class="form-group botones-agregar">
@@ -87,7 +97,6 @@
     </div>
   </form>
 </section>
-
 
 <!-- Resumen de la Orden -->
 <section id="resumen">

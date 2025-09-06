@@ -1,11 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core'; 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 
 interface Item {
   id: number;
   nombre: string;
-  precio: number;
+  precioUnitario: number;
+  existencia: number;
 }
 
 @Component({
@@ -15,7 +17,11 @@ interface Item {
   templateUrl: './orden.component.html',
   styleUrls: ['./orden.component.css']
 })
-export class OrdenComponent {
+export class OrdenComponent implements OnInit {
+  private apiUrl = 'http://localhost:5158/api';
+
+  constructor(private http: HttpClient) {}
+
   // Datos cliente
   primerNombre = '';
   segundoNombre = '';
@@ -26,76 +32,115 @@ export class OrdenComponent {
   correo = '';
   nit = 'C/F';
 
-  // Productos y orden
-  items: Item[] = [
-    { id: 1, nombre: 'Laptop', precio: 800 },
-    { id: 2, nombre: 'Mouse', precio: 150 },
-    { id: 3, nombre: 'Teclado', precio: 250 },
-    { id: 4, nombre: 'Monitor', precio: 1200 }
-  ];
-
-  // Selección de producto
+  // Productos
+  items: Item[] = [];
   seleccion: Item | null = null;
   cantidad: number | null = null;
 
-  // Resumen de la orden
+  // Resumen de orden
   resumen: { nombre: string; cantidad: number; precio: number; subtotal: number }[] = [];
-  total: number = 0;
+  total = 0;
 
-  // Filtro de búsqueda
+  // Filtro buscador
   filtroProducto = '';
+  sugerencias: Item[] = [];
+  busquedaRealizada = false;
 
-  // Devuelve productos filtrados en tiempo real
-  get productosFiltrados(): Item[] {
-    if (!this.filtroProducto) return this.items;
-    return this.items.filter(item =>
-      item.nombre.toLowerCase().includes(this.filtroProducto.toLowerCase())
-    );
+  ngOnInit() {
+    this.cargarProductos();
   }
 
-  // Seleccionar producto desde la lista filtrada
+  cargarProductos() {
+    this.http.get<Item[]>(`${this.apiUrl}/productos`).subscribe(data => {
+      this.items = data;
+    });
+  }
+
+  buscarProductos() {
+    const q = this.filtroProducto.trim();
+    if (!q) {
+      this.sugerencias = [];
+      this.busquedaRealizada = false;
+      return;
+    }
+
+    this.http
+      .get<Item[]>(`${this.apiUrl}/productos?nombre=${encodeURIComponent(q)}`)
+      .subscribe({
+        next: (data) => {
+          console.log("🔍 Respuesta API:", data); // debug
+          this.sugerencias = data;
+          this.busquedaRealizada = true;
+        },
+        error: (err) => {
+          console.error('❌ Error buscando productos:', err);
+          this.sugerencias = [];
+          this.busquedaRealizada = true;
+        }
+      });
+  }
+
   seleccionarProducto(item: Item) {
     this.seleccion = item;
     this.filtroProducto = item.nombre;
     this.cantidad = 1;
+    this.sugerencias = [];
+    this.busquedaRealizada = false;
   }
 
-  // Lista desplegable
-  cambiarPrecio(itemId: number) {
-    const item = this.items.find(i => i.id === itemId);
-    if (item) {
-      this.seleccion = item;
-      this.filtroProducto = item.nombre;
-      this.cantidad = 1;
-    }
-  }
-
-  // Agregar producto al resumen
   agregarProducto() {
     if (!this.seleccion || !this.cantidad) return;
 
-    const subtotal = this.seleccion.precio * this.cantidad;
+    const subtotal = this.seleccion.precioUnitario * this.cantidad;
     this.total += subtotal;
+
     this.resumen.push({
       nombre: this.seleccion.nombre,
       cantidad: this.cantidad,
-      precio: this.seleccion.precio,
+      precio: this.seleccion.precioUnitario,
       subtotal
     });
 
-    // Limpiar selección para el siguiente producto
     this.seleccion = null;
     this.cantidad = null;
     this.filtroProducto = '';
+    this.busquedaRealizada = false;
   }
 
-  // Confirmar orden
   confirmarOrden() {
-    alert('Orden confirmada ✅');
-    this.limpiarOrden();
+    if (!this.primerNombre.trim() || !this.primerApellido.trim() || !this.direccion.trim() || this.resumen.length === 0) {
+      alert('⚠️ Complete los campos del cliente y agregue al menos un producto antes de confirmar la orden.');
+      return;
+    }
+
+    const orden = {
+      numeroOrden: Date.now().toString(),
+      cliente: {
+        primerNombre: this.primerNombre,
+        segundoNombre: this.segundoNombre,
+        primerApellido: this.primerApellido,
+        segundoApellido: this.segundoApellido,
+        direccion: this.direccion,
+        telefono: this.telefono,
+        correo: this.correo,
+        nit: this.nit
+      },
+      fecha: new Date().toISOString(),
+      total: this.total,
+      estado: 'Pendiente',
+      detalles: this.resumen.map(r => ({
+        productoId: this.items.find(i => i.nombre === r.nombre)?.id,
+        cantidad: r.cantidad,
+        precioUnitario: r.precio
+      }))
+    };
+
+    this.http.post(`${this.apiUrl}/ordenes`, orden).subscribe(() => {
+      alert('✅ Orden guardada en BD');
+      this.limpiarOrden();
+    });
   }
 
-  // Limpiar toda la orden
   limpiarOrden() {
     this.primerNombre = '';
     this.segundoNombre = '';
@@ -105,13 +150,13 @@ export class OrdenComponent {
     this.telefono = '';
     this.correo = '';
     this.nit = 'C/F';
-
     this.seleccion = null;
     this.cantidad = null;
     this.filtroProducto = '';
-
+    this.sugerencias = [];
     this.resumen = [];
     this.total = 0;
+    this.busquedaRealizada = false;
   }
 
   focoNit() {
@@ -123,6 +168,8 @@ export class OrdenComponent {
   }
 
   verOrdenes() {
-    alert('Aquí se mostrarían las órdenes guardadas 📋');
+    this.http.get<any[]>(`${this.apiUrl}/ordenes`).subscribe(data => {
+      alert(`Se encontraron ${data.length} órdenes en la BD 📋`);
+    });
   }
 }
